@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
-int main()
+int main() 
 {
     cxq_t q;
     int slots = 10;

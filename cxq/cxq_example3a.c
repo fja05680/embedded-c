@@ -20,8 +20,7 @@ typedef struct _person_t {
 } person_t;
 
 /* Optional: to use cxq_traverse, you must define a callback. */
-static void peekfun(const void *data)
-{
+static void peekfun(const void *data) {
     person_t *P = (person_t *)(data);
     printf("first_name: %s, last_name: %s, age %d\n",
            P->first_name, P->last_name, P->age);
@@ -87,8 +86,7 @@ int main()
 
     /* Retrieve queue elements. */
     printf("dequeue:\n");
-    while (!cxq_isempty(&q))
-    {
+    while (!cxq_isempty(&q)) {
         if (cxq_dequeue(&q, (void *)&P, true)) {
             printf("first_name = %s, last_name = %s, age = %d\n",
                    P.first_name, P.last_name, P.age);

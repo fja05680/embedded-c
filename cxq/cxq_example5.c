@@ -35,8 +35,7 @@ static int array_len;
 /* Custom malloc function - required to create memory for
    dynamic struct elements.
 */
-void * my_malloc(size_t size)
-{
+void * my_malloc(size_t size) {
     person_t *data = (person_t *)q.data;
     array_len = size / sizeof(person_t);
 
@@ -50,8 +49,7 @@ void * my_malloc(size_t size)
 /* Custom free function - first free memory for struct elements,
    then for array.
 */
-void my_free(void *ptr)
-{
+void my_free(void *ptr) {
     person_t *data = (person_t *)ptr;
     for (int i = 0; i < array_len; i++) {
         free(data[i].first_name);
@@ -62,8 +60,7 @@ void my_free(void *ptr)
 /* Custom memcpy functon - allows copying of each struct element
    individually, so that pointer values aren't overwritten.
 */
-void * my_memcpy(void *dest, const void *src, size_t n)
-{
+void * my_memcpy(void *dest, const void *src, size_t n) {
     person_t *A = (person_t *)dest;
     person_t *B = (person_t *)src;
 
@@ -74,8 +71,7 @@ void * my_memcpy(void *dest, const void *src, size_t n)
 }
 
 /* Optional: to use cxq_traverse, you must define a callback. */
-static void peekfun(const void *data)
-{
+static void peekfun(const void *data) {
     person_t *P = (person_t *)(data);
     printf("first_name: %s, last_name: %s, age %d\n",
            P->first_name, P->last_name, P->age);

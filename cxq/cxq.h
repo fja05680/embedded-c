@@ -47,34 +47,28 @@
 #endif /* MULTI_THREAD */
 
 
-typedef struct _memfuns_t {
+typedef struct {
     void * (*malloc_fn)(size_t size);
     void   (*free_fn)(void *ptr);
     void * (*memcpy_fn)(void *dest, const void *src, size_t n);
 } memfuns_t;
 
-typedef struct _cxq_t {
+typedef struct {
     void *data;             /* Pointer to body of queue. */
     int first;              /* Position of first element. */
-    int count;              /* Number of queue elements. */
-    int slots;              /* Number of queue slots. */
+    int count;              /* Pumber of queue elements. */
+    int slots;              /* Num of queue slots. */
     int data_size;          /* Size of each element. */
     bool circular;          /* This is a circular buffer. */
     memfuns_t *handlers;    /* Memory callback functions. */
 #ifdef MULTI_THREAD
-    osMutexId_t lock;       /* queue lock */
+    osMutexId_t lock;       /* Queue lock. */
 #endif
 } cxq_t;
 
 /* construction/destruction */
 void cxq_init(cxq_t *q, int slots, int data_size, memfuns_t *handlers);
 void cxq_finish(cxq_t *q);
-
-/* enqueue/dequeue/flush */
-void * cxq_enqueue(cxq_t *q, const void *data);
-void * cxq_enqueue_front(cxq_t *q, const void *data);
-void * cxq_dequeue(cxq_t *q, void *data, bool remove);
-void   cxq_flush(cxq_t *q);
 
 /* get/set queue options */
 bool cxq_get_circular(const cxq_t *q);
@@ -86,15 +80,21 @@ int cxq_get_count(const cxq_t *q);
 int cxq_get_slots(const cxq_t *q);
 int cxq_get_data_size(const cxq_t *q);
 
+/* enqueue/dequeue/flush */
+void * cxq_enqueue(cxq_t *q, const void *data);
+void * cxq_enqueue_front(cxq_t *q, const void *data);
+void * cxq_dequeue(cxq_t *q, void *data, bool remove);
+void   cxq_flush(cxq_t *q);
+
 /* isempty/isfull/slots_empty/slots_filled */
 bool cxq_isempty(const cxq_t *q);
 bool cxq_isfull(const cxq_t *q);
 int cxq_slots_empty(const cxq_t *q);
 int cxq_slots_filled(const cxq_t *q);
 
-/* Dianostics */
+/* dianostics */
 typedef void (*cxq_callback_t)(const void *data);
 void cxq_traverse(const cxq_t *q, cxq_callback_t peekfun);
 
 
-#endif /*CXQ_H*/
+#endif /* CXQ_H_ */

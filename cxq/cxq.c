@@ -4,12 +4,12 @@
 
 *******************************************************************************/
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "cxq.h"
 
-#define TEST_CXQ
+//#define TEST_CXQ
 
 
 /*
@@ -26,8 +26,7 @@
   Returns
     None
 */
-void cxq_init(cxq_t *q, int slots, int data_size, memfuns_t *handlers)
-{
+void cxq_init(cxq_t *q, int slots, int data_size, memfuns_t *handlers) {
     q->first = 0;
     q->count = 0;
     q->slots = slots;
@@ -38,7 +37,8 @@ void cxq_init(cxq_t *q, int slots, int data_size, memfuns_t *handlers)
         q->handlers->malloc_fn = handlers->malloc_fn;
         q->handlers->free_fn = handlers->free_fn;
         q->handlers->memcpy_fn = handlers->memcpy_fn;
-    } else { /* Default handlers. */
+    } else {
+        /* Default handlers. */
         q->handlers->malloc_fn = malloc;
         q->handlers->free_fn = free;
         q->handlers->memcpy_fn = memcpy;
@@ -59,13 +59,47 @@ void cxq_init(cxq_t *q, int slots, int data_size, memfuns_t *handlers)
   Returns
     None
 */
-void cxq_finish(cxq_t *q)
-{
+void cxq_finish(cxq_t *q) {
     MUTEX_DESTROY(q->lock);
     if (q->handlers->free_fn)
         q->handlers->free_fn(q->data);
     free(q->handlers);
 }
+
+
+/* Returns true if queue is a ring buffer, otherwise false. */
+bool cxq_get_circular(const cxq_t *q) {return q->circular;}
+
+
+/* Make queue a ring buffer. */
+void cxq_set_circular(cxq_t *q) {q->circular = true;}
+
+
+/* Get position of first element in queue. */
+int cxq_get_first(const cxq_t *q) {return q->first;}
+
+
+/* Set starting position for queue. */
+void cxq_set_first(cxq_t *q, int first) {
+    if (q->first < q->slots)
+        q->first = first;
+}
+
+
+/* Get position of last element in queue. */
+int cxq_get_last(const cxq_t *q) {return (q->first + q->count - 1) % q->slots;}
+
+
+/* Returns num of elements in queue. */
+int cxq_get_count(const cxq_t *q) {return q->count;}
+
+
+/* Returns number of data slots. */
+int cxq_get_slots(const cxq_t *q) {return q->slots;}
+
+
+/* Returns data size of a queue element. */
+int cxq_get_data_size(const cxq_t *q) {return q->data_size;}
 
 
 /*
@@ -91,16 +125,14 @@ void cxq_finish(cxq_t *q)
     `remove` is set to true, `data` will be valid until
     it's overwritten.
 */
-static void * _cxq_dequeue(cxq_t *q, void *data, bool remove)
-{
+static void * _cxq_dequeue(cxq_t *q, void *data, bool remove) {
     void * slot;
     if (q->count <= 0) {
-        /* No data */
+        /* No data. */
         slot = NULL;
     } else {
         slot = q->data + q->first * q->data_size;
-        if (data)
-            q->handlers->memcpy_fn(data, slot, q->data_size);
+        if (data) q->handlers->memcpy_fn(data, slot, q->data_size);
         if (remove) {
             q->first = (q->first + 1) % q->slots;
             q->count--;
@@ -111,13 +143,12 @@ static void * _cxq_dequeue(cxq_t *q, void *data, bool remove)
 
 
 /* Public wrapper for _cxq_dequeue. */
-void * cxq_dequeue(cxq_t *q, void *data, bool remove)
-{
-  void * slot;
-  LOCK(q->lock);
-  slot = _cxq_dequeue(q, data, remove);
-  UNLOCK(q->lock);
-  return slot;
+void * cxq_dequeue(cxq_t *q, void *data, bool remove) {
+    void * slot;
+    LOCK(q->lock);
+    slot = _cxq_dequeue(q, data, remove);
+    UNLOCK(q->lock);
+    return slot;
 }
 
 
@@ -134,11 +165,10 @@ void * cxq_dequeue(cxq_t *q, void *data, bool remove)
     slot - A pointer to the enqueued data element.  Returns NULL
     if there are no open slots available, i.e. queue is full.
 */
-static void * _cxq_enqueue(cxq_t *q, const void *data)
-{
+static void * _cxq_enqueue(cxq_t *q, const void *data) {
     void * slot;
     if (q->count >= q->slots) {
-        /* No open slots available. */
+        /* No buffer space available. */
         slot = NULL;
     } else {
         int next = (q->first + q->count) % q->slots;
@@ -152,8 +182,7 @@ static void * _cxq_enqueue(cxq_t *q, const void *data)
 
 
 /* Public wrapper for _cxq_enqueue. */
-void * cxq_enqueue(cxq_t *q, const void *data)
-{
+void * cxq_enqueue(cxq_t *q, const void *data) {
     void * slot;
     LOCK(q->lock);
     if (q->circular && cxq_isfull(q))
@@ -167,14 +196,13 @@ void * cxq_enqueue(cxq_t *q, const void *data)
 /* Same as _cxq_enqueue, except element to front of queue
    User code must not call this function directly.
 */
-static void * _cxq_enqueue_front(cxq_t *q, const void *data)
-{
+static void * _cxq_enqueue_front(cxq_t *q, const void *data) {
     void * slot;
     if (q->count >= q->slots) {
-        /* No open slots available. */
+        /* No buffer space available. */
         slot = NULL;
     } else {
-        q->first = q->first ? q->first - 1 : q->slots -1;
+        q->first = q->first ? q->first - 1 : q->slots - 1;
         slot = q->data + q->first * q->data_size;
         q->handlers->memcpy_fn(slot, data, q->data_size);
         q->count++;
@@ -184,8 +212,7 @@ static void * _cxq_enqueue_front(cxq_t *q, const void *data)
 
 
 /* Public wrapper for _enqueue_front. */
-void * cxq_enqueue_front(cxq_t *q, const void *data)
-{
+void * cxq_enqueue_front(cxq_t *q, const void *data) {
     void * slot;
     LOCK(q->lock);
     if (q->circular && cxq_isfull(q))
@@ -197,51 +224,23 @@ void * cxq_enqueue_front(cxq_t *q, const void *data)
 
 
 /* Remove all elements from queue. */
-void cxq_flush(cxq_t *q)
-{
+void cxq_flush(cxq_t *q) {
     while (!cxq_isempty(q))
         cxq_dequeue(q, NULL, true);
 }
 
 
-/* Returns true if queue is a ring buffer, otherwise false. */
-bool cxq_get_circular(const cxq_t *q) {return q->circular;}
-
-/* Make queue a ring buffer. */
-void cxq_set_circular(cxq_t *q) {q->circular = true;}
-
-/* Get position of first element in queue. */
-int cxq_get_first(const cxq_t *q) {return q->first;}
-
-/* Set starting position for queue. */
-void cxq_set_first(cxq_t *q, int first)
-{
-    if (q->first < q->slots)
-        q->first = first;
-}
-
-/* Get position of last element in queue. */
-int cxq_get_last(const cxq_t *q)
-    {return (q->first + q->count - 1) % q->slots;}
-
-/* Returns num of elements in queue. */
-int cxq_get_count(const cxq_t *q) {return q->count;}
-
-/* Returns data size of a queue element. */
-int cxq_get_data_size(const cxq_t *q) {return q->data_size;}
-
-
 /* Returns true if queue is empty. */
 bool cxq_isempty(const cxq_t *q) {return q->count <= 0;}
+
 
 /* Returns true if queue is full. */
 bool cxq_isfull(const cxq_t *q) {return q->count >= q->slots;}
 
-/* Returns number of data slots. */
-int cxq_get_slots(const cxq_t *q) {return q->slots;}
 
 /* Returns num of empty slots. */
 int cxq_slots_empty(const cxq_t *q) {return q->slots - q->count;}
+
 
 /* Returns num of filled slots, same as cxq_get_count(). */
 int cxq_slots_filled(const cxq_t *q) {return q->count;}
@@ -258,15 +257,18 @@ int cxq_slots_filled(const cxq_t *q) {return q->count;}
   Returns
     None
 */
-void cxq_traverse(const cxq_t *q, cxq_callback_t peekfun)
-{
+void cxq_traverse(const cxq_t *q, cxq_callback_t peekfun) {
     LOCK(q->lock);
-    int end = cxq_get_last(q);
-    for (int i = q->first; i != end; i = (i+1) % q->slots)
-        peekfun(q->data + i * q->data_size);
+    int index = q->first;
+    for (int i = 0; i < q->count; i++) {
+        peekfun(q->data + index * q->data_size);
+        index = (index + 1) % q->slots;
+    }
     UNLOCK(q->lock);
 }
 
+
+/*********************************************************************/
 
 #ifdef TEST_CXQ
 
@@ -277,11 +279,11 @@ void cxq_traverse(const cxq_t *q, cxq_callback_t peekfun)
 #include <stdio.h>
 
 /* Optional: to use cxq_traverse, you must define a callback. */
-static void peekfun(const void *data)
-{
+static void peekfun(const void *data) {
     int *i = (int *)data;
     printf("peek: %d\n", *i);
 }
+
 
 int main()
 {
@@ -292,8 +294,7 @@ int main()
     cxq_init(&q, slots, sizeof(int), NULL);
 
     /* Populate the queue. */
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         if (!cxq_enqueue(&q, &i))
             printf("queue full!\n");
         else
@@ -317,16 +318,14 @@ int main()
     cxq_traverse(&q, peekfun);
 
     /* Retrieve queue elements. */
-    while (!cxq_isempty(&q))
-    {
+    while (!cxq_isempty(&q)) {
         int data;
         if (cxq_dequeue(&q, &data, true))
             printf("dequeue: %d\n", data);
     }
 
     /* Re-populate the queue. */
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         if (!cxq_enqueue(&q, &i))
             printf("queue full!\n");
         else
@@ -344,4 +343,4 @@ int main()
     cxq_finish(&q);
 }
 
-#endif /*TEST_CXQ*/
+#endif /* TEST_CXQ */
